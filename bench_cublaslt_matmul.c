@@ -377,7 +377,7 @@ int main (int argc, char * argv[]){
 	}
 	// Reset beta so C is loaded in
 	else{
-		beta = 0.5;
+		beta = 1.0;
 	}
 
 	DataType compute_dt;
