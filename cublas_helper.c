@@ -332,7 +332,7 @@ static int set_cublas_matmul_params(Cublas_Matmul_Params * matmul_params, cublas
 
 	if ((c_dt == NONE) || (!C)) {
 		if ((a_dt == FP8E4M3) || (a_dt == FP8E5M2)){
-			c_cuda_dt = FP16;
+			c_cuda_dt = CUDA_R_16F;
 		}
 		else {
 			c_cuda_dt = d_cuda_dt;
