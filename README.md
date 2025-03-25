@@ -1,8 +1,6 @@
-# Matmul Benchmarking
-- Using cublasLt
+# Matmul Benchmarking with cublasLt
 
 ## Directions
-
 1. Download Source
 2. Run `make`
 3. Start Program from Command Line:
