@@ -151,9 +151,11 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 			target_sm_count = num_sms - remain;
 		}
 
-		printf("SM Count: %d\n", sm_resource.sm.smCount);
+		printf("SM Count: %d, Target SM Count: %d\n", sm_resource.sm.smCount, target_sm_count);
 
-		unsigned int num_groups = cur_sm_cnt / target_sm_count; 
+		unsigned int num_groups = cur_sm_cnt / target_sm_count;
+
+		printf("Num Groups: %u\n", num_groups);
 
 		CUdevResource * result_sm_resources = malloc(num_groups * sizeof(result_sm_resources));
 		if (!result_sm_resources){
@@ -171,6 +173,8 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 
 		*used_sms = result_sm_resources[0].sm.smCount;
 
+		printf("\n\nUsed SMs: %d\n", result_sm_resources[0].sm.smCount);
+
 		// Generate resource desc
 		CUdevResourceDesc sm_resource_desc;
 		unsigned int nbResources = 1;
@@ -184,7 +188,7 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 		// Create green context
 		CUgreenCtx green_ctx;
 		unsigned int green_ctx_flags = CU_GREEN_CTX_DEFAULT_STREAM;
-		result = cuGreenCtxCreate(&green_ctx, sm_resource_desc, dev, green_ctx_flags);
+		result = cuGreenCtxCreate(&green_ctx, sm_resource_desc, device_id, green_ctx_flags);
 		if (result != CUDA_SUCCESS){
 			cuGetErrorString(result, &err);
 	    	fprintf(stderr, "Error: Could not create green ctx: %s\n", err);
