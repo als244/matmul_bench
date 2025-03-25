@@ -357,7 +357,7 @@ int main (int argc, char * argv[]){
 
 	sprintf(prof_warmup_str, "Warmup: %d Matmuls...", n_warmup);
 
-	printf("Warmup: %d Matmuls...\n\n", n_warmup);
+	printf("Warmup: %d Matmuls Total...\n\n", n_warmup);
 
 	profile_range_push(prof_warmup_str);
 
@@ -433,7 +433,7 @@ int main (int argc, char * argv[]){
 
 	printf("Benchmark: %d Matmuls...\n\n", n_matmuls);
 
-	sprintf(prof_outer_str, "Benchmark: %d Matmuls", n_matmuls);
+	sprintf(prof_outer_str, "Benchmark: %d Matmuls x %d Iterations", n_matmuls, n_compute_iters);
 
 	profile_range_push(prof_warmup_str);
 
