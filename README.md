@@ -36,6 +36,6 @@ the min counts and multiples for different arch versions.
 
 ##### Profiling Script
 - If you are profiling long or many matmuls, you can reduce the sampling frequency to avoid dropping data with `--gpu-metrics-frequency`. 
-	- It is currently set to 10000 (e.g. 10kHz = 100 microseconds), it has maximum frequency of 200000. 
+	- It is currently set to 20000 (e.g. 20kHz = 50 microsecond sampling), it has maximum frequency of 200000. 
 - The profiling script is curparameterized for H100 machine with `--gpu-metrics-set=gh100`. 
 	- For A100 you can use `ga100`, for other Ampere (e.g. GeForce RTX 4090/3090) use `ga10x`. 
