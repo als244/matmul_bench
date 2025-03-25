@@ -155,6 +155,7 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 
 		unsigned int num_groups = cur_sm_cnt / target_sm_count;
 
+		num_groups = 1;
 		printf("Num Groups: %u\n", num_groups);
 
 		CUdevResource * result_sm_resources = malloc(num_groups * sizeof(result_sm_resources));
