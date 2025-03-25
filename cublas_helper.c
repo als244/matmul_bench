@@ -405,8 +405,18 @@ static int set_cublas_matmul_params(Cublas_Matmul_Params * matmul_params, cublas
 	}
 
 	if ((c_dt == NONE) || (!C)){
-		matmul_params -> same_cDesc = true;
-		memcpy(&(matmul_params -> Cdesc), &(matmul_params -> Ddesc), sizeof(cublasLtMatrixLayout_t));
+		if ((a_dt == FP8E4M3) || (a_dt == FP8E5M2)){
+			matmul_params -> same_cDesc = false;
+			status = cublasLtMatrixLayoutCreate(&(matmul_params -> Cdesc), c_cuda_dt, N, M, N);
+               		if (status != CUBLAS_STATUS_SUCCESS) {
+                        	fprintf(stderr, "Error: Ddesc matmul layout could not be created\n");
+                        	return -1;
+                	}
+		}
+		else{
+			matmul_params -> same_cDesc = true;
+			memcpy(&(matmul_params -> Cdesc), &(matmul_params -> Ddesc), sizeof(cublasLtMatrixLayout_t));
+		}
 	}
 	else{
 		matmul_params -> same_cDesc = false;
