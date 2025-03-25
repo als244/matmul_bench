@@ -13,7 +13,7 @@
 
 ### Notes:
 
-#### Parameter Meanings
+#### Command Line Arguments
 - `M, K, N`: Matrix Dimensions
 - `dtype_fp_bits`: One of 8, 16, or 32. 
 	- Sets dtypes for A, B, D. If use_c_matrix is set and dtype_fp_bits is 8, then C dtype is 16-bit, otherwise C dtype is also set to same as others.
