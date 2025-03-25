@@ -13,8 +13,8 @@
 #### Parameter Meanings
 - `M, K, N`: Matrix Dimensions
 - `dtype_fp_bits`: One of 8, 16, or 32. Sets dtypes for A, B, D. If use_c_matrix is set and dtype_fp_bits is 8, then C dtype is 16-bit, otherwise C dtype is also set to same as others.
-- `n_sms`: The number of SMs to use. Setting to 0 implies using all SMs. See: [Nvidia Green Context Documentation](https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__GREEN__CONTEXTS.html) to understand
-the number of SMs that will actually be used. Setting > 0 and below min count will set to min count number of SMs. If > min_count then number of SMs will round-down to nearest arch-specific multiple.
+- `n_sms`: The number of SMs to use. Setting to 0 implies using all SMs. Setting > 0 and below min count will set to min count number of SMs. If > min_count then number of SMs will round-down to nearest arch-specific multiple. See: [Nvidia Green Context Documentation](https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__GREEN__CONTEXTS.html) to understand
+the min counts and multiples for different arch versions. 
 - `use_fp16_accum`: Choose either 0 or 1 to enable FP16 accumulation. On RTX devices FP16 has double the throughput of FP32 accumulation, while on A100/H100 FP32 has same perf as FP16.
 - `log2_workspace_bytes`: Setting the workspace size as 2^this value. A reasonable range is [0, 26], with 22 as my preference.
 - `n_matmuls`: Number of distinct matrix mutliplications (unique A matrices and possibly unique B) to perform. Done in round-robin fashion to help simulate true performance with realistic caching behavior. 
