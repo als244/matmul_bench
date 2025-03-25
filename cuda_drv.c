@@ -31,7 +31,7 @@ int get_dev_attribute(int * ret_val, CUdevice dev, CUdevice_attribute attrib) {
 }
 
 
-int initialize_ctx(int device_id, CUcontext * ctx, int num_sms){
+int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms, int * used_sms){
 
 	int ret;
 
@@ -92,6 +92,8 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms){
 		return -1;
 	}
 
+	*total_sms = sm_count;
+
 
 	// Set the host thread to spin waiting for completetion from GPU
 
@@ -100,6 +102,8 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms){
 	
 	
 	if ((num_sms <= 0) || (!green_avail)) {
+		*used_sms = sm_count;
+
 		result = cuCtxCreate(ctx, ctx_flags, dev);
 		if (result != CUDA_SUCCESS){
 			cuGetErrorString(result, &err);
@@ -122,10 +126,12 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms){
 
 		if (cur_sm_cnt != sm_count){
 			fprintf(stderr, "Error: sm_resource smCount (%d) differs from dev attribute (%d)...\n", cur_sm_cnt, sm_count);
+			return -1;
 		}
 
 		// No need for green context at this point
 		if (num_sms >= cur_sm_cnt){
+			*used_sms = sm_count;
 			result = cuCtxCreate(ctx, ctx_flags, dev);
 			if (result != CUDA_SUCCESS){
 				cuGetErrorString(result, &err);
@@ -143,6 +149,8 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms){
 			int remain = num_sms % multiple_factor;
 			sm_resource.sm.smCount = num_sms - remain;
 		}
+
+		*used_sms = sm_resource.sm.smCount;
 
 		// Generate resource desc
 		CUdevResourceDesc sm_resource_desc;

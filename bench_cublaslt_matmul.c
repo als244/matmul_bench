@@ -92,7 +92,10 @@ int main (int argc, char * argv[]){
 	// HARDCODING FOR NOW
 	int device_id = 0;
 
-	ret = initialize_ctx(device_id, &ctx, n_sms);
+	int total_sms;
+	int used_sms;
+
+	ret = initialize_ctx(device_id, &ctx, n_sms, &total_sms, &used_sms);
 	if (ret){
 		fprintf(stderr, "Error: failed to init cuda ctx...\n");
 		return -1;
@@ -130,14 +133,7 @@ int main (int argc, char * argv[]){
 	// Show Expected Outcome...
 	double compute_peak_tflops;
 
-	double sm_ratio;
-
-	if (n_sms <= 0){
-		sm_ratio = 1.0;
-	}
-	else{
-		sm_ratio = ((double) n_sms) / (double) NUM_SMS;
-	}
+	double sm_ratio = (double) used_sms / (double) total_sms;
 
 	if (dt == FP8E4M3){
 		compute_peak_tflops = MAX_FP8_TFLOPS * sm_ratio;
