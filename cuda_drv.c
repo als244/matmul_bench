@@ -158,7 +158,7 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 		num_groups = 1;
 		printf("Num Groups: %u\n", num_groups);
 
-		CUdevResource * result_sm_resources = malloc(num_groups * sizeof(result_sm_resources));
+		CUdevResource * result_sm_resources = malloc(num_groups * sizeof(CUdevResource));
 		if (!result_sm_resources){
 			fprintf(stderr, "Error: malloc failed to alloc container for result sm resources...\n");
 			return -1;
