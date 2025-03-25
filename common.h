@@ -29,6 +29,12 @@
 #endif
 
 
+#define MY_MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MY_MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+#define MY_CEIL(a, b) ((a + b - 1) / b)
+
+
+
 #include "dtype.h"
 
 #include "backend_profile.h"

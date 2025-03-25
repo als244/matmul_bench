@@ -171,13 +171,18 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 	    	return -1;
 		}
 
+		if (num_groups == 0){
+			fprintf(stderr, "Error: no groups available to split sm resources...\n");
+			return -1;
+		}
+
 		*used_sms = result_sm_resources[0].sm.smCount;
 
 		printf("\n\nUsed SMs: %d\n", result_sm_resources[0].sm.smCount);
 
 		// Generate resource desc
 		CUdevResourceDesc sm_resource_desc;
-		unsigned int nbResources = num_groups - 1;
+		unsigned int nbResources = MY_MIN(1, num_groups - 1);
 		result = cuDevResourceGenerateDesc(&sm_resource_desc, result_sm_resources, nbResources);
 		if (result != CUDA_SUCCESS){
 			cuGetErrorString(result, &err);
