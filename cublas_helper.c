@@ -331,7 +331,12 @@ static int set_cublas_matmul_params(Cublas_Matmul_Params * matmul_params, cublas
 	}
 
 	if ((c_dt == NONE) || (!C)) {
-		c_cuda_dt = d_cuda_dt;
+		if ((a_dt == FP8E4M3) || (a_dt == FP8E5M2)){
+			c_cuda_dt = FP16;
+		}
+		else {
+			c_cuda_dt = d_cuda_dt;
+		}
 	}
 	else{
 		ret = dtype_to_cuda_dtype(c_dt, &c_cuda_dt);
