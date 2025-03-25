@@ -20,7 +20,7 @@ int main (int argc, char * argv[]){
 	int ret;
 
 	if (argc != 13){
-		fprintf(stderr, "Error: Usage. ./benchCublasLtMatmul <M> <K> <N> <dtype_fp_bits> <log2_workspace_bytes> <n_matmuls> <n_warmup> <n_compute_iters> <n_sms> <use_same_b_matrix> <use_c_matrix> <use_fp16_accum>\n");
+		fprintf(stderr, "Error: Usage. ./benchCublasLtMatmul <M> <K> <N> <dtype_fp_bits> <n_sms> <use_fp16_accum> <log2_workspace_bytes> <n_matmuls> <n_warmup> <n_compute_iters> <use_same_b_matrix> <use_c_matrix>\n");
 		return -1;
 	}
 
@@ -47,7 +47,11 @@ int main (int argc, char * argv[]){
 		return -1;
 	}
 
-	int log2_workspace_bytes = atoi(argv[5]);
+	int n_sms = atoi(argv[5]);
+
+	int use_fp_16_accum = atoi(argv[6]);
+
+	int log2_workspace_bytes = atoi(argv[7]);
 
 	if (log2_workspace_bytes < 0){
 		log2_workspace_bytes = 0;
@@ -61,21 +65,15 @@ int main (int argc, char * argv[]){
 	size_t workspaceBytes = 1UL << log2_workspace_bytes;
 	
 
-	int n_matmuls = atoi(argv[6]);
+	int n_matmuls = atoi(argv[8]);
 
-	int n_warmup = atoi(argv[7]);
+	int n_warmup = atoi(argv[9]);
 
-	int n_compute_iters = atoi(argv[8]);
+	int n_compute_iters = atoi(argv[10]);
 
-	int n_sms = atoi(argv[9]);
+	int use_same_b_matrix = atoi(argv[11]);
 
-
-	int use_same_b_matrix = atoi(argv[10]);
-
-	int use_c_matrix = atoi(argv[11]);
-
-	int use_fp_16_accum = atoi(argv[12]);
-
+	int use_c_matrix = atoi(argv[12]);
 
 
 	ret = initialize_drv();
@@ -372,10 +370,14 @@ int main (int argc, char * argv[]){
 	DataType a_dt = dt;
 	DataType b_dt = dt;
 	DataType d_dt = dt;
-	
+
 	// will set C == D in this case...
 	if (!use_c_matrix){
 		c_dt = NONE;
+	}
+	// Reset beta so C is loaded in
+	else{
+		beta = 0.5;
 	}
 
 	DataType compute_dt;
