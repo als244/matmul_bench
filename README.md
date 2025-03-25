@@ -26,10 +26,8 @@ the min counts and multiples for different arch versions.
 - `n_warmup`: Number of total matrix matmuls to perform before starting profiling/timing. 
 	- This helps simulate true performance in sense that after warmup phase clock-speed will represent realistic behavior.
 - `n_compute_iters`: Number of iterations to repeat the round-robin dispatching of the `n_matmuls`
-- `use_same_b_matrix`: Choose either 0 or 1. 
-	- Sets the same B matrix (i.e. same address) for each of the `n_matmuls`
-- `use_c_matrix`: Choose either 0 or 1.
-	- Adds C to the result of AB^T before saving in D.
+- `use_same_b_matrix`: Choose either 0 or 1 to set the same B matrix (i.e. same address) for each of the `n_matmuls`
+- `use_c_matrix`: Choose either 0 or 1 to add C (different than D) to the result of AB^T before saving in D.
 
 ##### Compile-Time Constants 
 - There are some hardcoded constants at the top of source file: `bench_cublaslt_matmul.c`. 
