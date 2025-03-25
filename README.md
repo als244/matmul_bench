@@ -5,8 +5,10 @@
 2. Run `make`
 3. Start Program from Command Line:
 	- ```./benchCublasLtMatmul <M> <K> <N> <dtype_fp_bits> <n_sms> <use_fp16_accum> <log2_workspace_bytes> <n_matmuls> <n_warmup> <n_compute_iters> <use_same_b_matrix> <use_c_matrix>```
-	- Instead, can optionally Start Program with the Nsight System's Profiler: 
+	- Instead, can optionally Start Program with `nsys` profiler: 
 		- ```./do_profile_metrics.sh << All Arguments >>```
+		- Before starting profiler, ensure that there is a directory `profiling` in current directory for `.nsys-rep` output to be saved.
+			- Output files can be loaded in Nsight System's GUI to see timeline view.
 
 ### Notes:
 
