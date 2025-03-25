@@ -155,7 +155,6 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 
 		unsigned int num_groups = cur_sm_cnt / target_sm_count;
 
-		num_groups = 1;
 		printf("Num Groups: %u\n", num_groups);
 
 		CUdevResource * result_sm_resources = malloc(num_groups * sizeof(CUdevResource));
@@ -178,7 +177,7 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 
 		// Generate resource desc
 		CUdevResourceDesc sm_resource_desc;
-		unsigned int nbResources = 1;
+		unsigned int nbResources = num_groups - 1;
 		result = cuDevResourceGenerateDesc(&sm_resource_desc, result_sm_resources, nbResources);
 		if (result != CUDA_SUCCESS){
 			cuGetErrorString(result, &err);
