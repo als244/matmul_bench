@@ -151,7 +151,7 @@ int main (int argc, char * argv[]){
 
 	double compute_bound_limit = compute_peak_tflops / MEM_BW_TBYTES_SEC;
 
-	printf("Device Info:\n\tDevice Compute Peak TFLOPS (fp%d): %d\n\tMem BW (TB/sec): %.2f\n\tLower Arithmetic Intensity Bound for Full Utilization: %.2f\n\n\n", dtype_fp_bits, (int) compute_peak_tflops, MEM_BW_TBYTES_SEC, compute_bound_limit);
+	printf("Device Info:\n\tDevice Compute Peak TFLOPS (fp%d, #SMs = %d): %d\n\tMem BW (TB/sec): %.2f\n\tLower Arithmetic Intensity Bound for Full Utilization: %.2f\n\n\n", dtype_fp_bits, used_sms, (int) compute_peak_tflops, MEM_BW_TBYTES_SEC, compute_bound_limit);
 
 	uint64_t total_flops = 2 * (uint64_t) M * (uint64_t) K * (uint64_t) N;
 
@@ -176,7 +176,7 @@ int main (int argc, char * argv[]){
 	double min_time_sec = total_tflops / expected_tflops;
 	double min_time_micros = min_time_sec * 1e6;
 
-	printf("M = %d, K = %d, N = %d\n\tArithmetic Intensity (Total FLOPs / Total Bytes): %.2f\n\tUpper Bound Throughput: %.2f%%\n\tUpper Bound TFLOPS: %.2f\n\tLower Bound Time (micros): %.2f\n\n\n", M, K, N, arithmetic_intensity, 100 * frac_of_peak, expected_tflops, min_time_micros);
+	printf("M = %d, K = %d, N = %d; # SMs = %d\n\tArithmetic Intensity (Total FLOPs / Total Bytes): %.2f\n\tUpper Bound Throughput: %.2f%%\n\tUpper Bound TFLOPS: %.2f\n\tLower Bound Time (micros): %.2f\n\n\n", M, K, N, used_sms, arithmetic_intensity, 100 * frac_of_peak, expected_tflops, min_time_micros);
 
 
 
@@ -488,7 +488,7 @@ int main (int argc, char * argv[]){
 	achieved_tflops = (((uint64_t) n_compute_iters * (uint64_t) n_matmuls * total_flops) / elapsed_sec) / 1e12;
 	achieved_throughput_pct = achieved_tflops / compute_peak_tflops;
 
-	printf("\nCompleted %d Matrix Multiplications!\n\tM = %d, K = %d, N = %d\n\n\t\tAvg. Elapsed Time (micros): %.2f\n\t\tOverall Achieved TFLOPS: %.3f\n\t\tAchieved Throughput: %.2f%%\n\n", n_matmuls, M, K, N, elapsed_micros / ((double) n_matmuls * (double) n_compute_iters), achieved_tflops, 100 * achieved_throughput_pct);
+	printf("\nCompleted %d Matrix Multiplications!\n\tM = %d, K = %d, N = %d; #SMs = %d\n\n\t\tAvg. Elapsed Time (micros): %.2f\n\t\tOverall Achieved TFLOPS: %.3f\n\t\tAchieved TFLOPS Per SM: %.3f\n\t\tAchieved Throughput: %.2f%%\n\n", n_matmuls, M, K, N, used_sms, elapsed_micros / ((double) n_matmuls * (double) n_compute_iters), achieved_tflops, achieved_tflops / used_sms, 100 * achieved_throughput_pct);
 
 	ret = profile_stop();
 	if (ret){
