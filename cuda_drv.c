@@ -150,6 +150,8 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 			sm_resource.sm.smCount = num_sms - remain;
 		}
 
+		printf("SM Count: %d\n", sm_resource.sm.smCount);
+
 		*used_sms = sm_resource.sm.smCount;
 
 		// Generate resource desc
