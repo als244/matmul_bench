@@ -189,7 +189,7 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 		// Create green context
 		CUgreenCtx green_ctx;
 		unsigned int green_ctx_flags = CU_GREEN_CTX_DEFAULT_STREAM;
-		result = cuGreenCtxCreate(&green_ctx, sm_resource_desc, device_id, green_ctx_flags);
+		result = cuGreenCtxCreate(&green_ctx, sm_resource_desc, dev, green_ctx_flags);
 		if (result != CUDA_SUCCESS){
 			cuGetErrorString(result, &err);
 	    	fprintf(stderr, "Error: Could not create green ctx: %s\n", err);
