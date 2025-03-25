@@ -75,7 +75,7 @@ void * create_rand_host_matrix(uint64_t M, uint64_t N, float mean, float std, Da
 	for (uint64_t i = 0; i < num_els; i++){
 		rand_val = rand_normal(mean, std);
 
-		if (dt == FP8){
+		if (dt == FP8E4M3){
 			*((uint8_t *) cur_matrix_el) = fp32_to_fp8(rand_val, 4, 3);
 		}
 		else if (dt == FP16){
@@ -166,7 +166,7 @@ void * load_host_matrix_from_file(char * filepath, uint64_t M, uint64_t N, DataT
 			if (dt == FP16){
 				*((uint16_t *) cur_new_matrix_el) = fp32_to_fp16(orig_val_fp32);
 			}
-			else if (dt == FP8){
+			else if (dt == FP8E4M3){
 				*((uint8_t *) cur_new_matrix_el) = fp32_to_fp8(orig_val_fp32, 4, 3);
 			}
 			else{
@@ -185,7 +185,7 @@ void * load_host_matrix_from_file(char * filepath, uint64_t M, uint64_t N, DataT
 			if (dt == FP32){
 				*((float *) cur_new_matrix_el) = fp32_upcast;
 			}
-			else if (dt == FP8){
+			else if (dt == FP8E4M3){
 				*((uint8_t *) cur_new_matrix_el) = fp32_to_fp8(fp32_upcast, 4, 3);
 			}
 			else{

@@ -10,6 +10,8 @@
 #define MAX_FP16_TFLOPS 989.0f
 #define MAX_FP32_TFLOPS 494.0f
 
+#define NUM_SMS 132
+
 #define MEM_BW_TBYTES_SEC 3.35f
 
 
@@ -17,8 +19,8 @@ int main (int argc, char * argv[]){
 
 	int ret;
 
-	if (argc != 10){
-		fprintf(stderr, "Error: Usage. ./benchCublasLtMatmul <M> <K> <N> <dtype_fp_bits> <log2_workspace_bytes> <n_matmuls> <n_warmup> <use_same_b_matrix> <n_compute_iters>\n");
+	if (argc != 13){
+		fprintf(stderr, "Error: Usage. ./benchCublasLtMatmul <M> <K> <N> <dtype_fp_bits> <log2_workspace_bytes> <n_matmuls> <n_warmup> <n_compute_iters> <n_sms> <use_same_b_matrix> <use_c_matrix> <use_fp16_accum>\n");
 		return -1;
 	}
 
@@ -32,7 +34,7 @@ int main (int argc, char * argv[]){
 	DataType dt;
 
 	if (dtype_fp_bits == 8){
-		dt = FP8;
+		dt = FP8E4M3;
 	}
 	else if (dtype_fp_bits == 16){
 		dt = FP16;
@@ -56,16 +58,24 @@ int main (int argc, char * argv[]){
 	}
 
 
-	size_t workspace_bytes = 1 << log2_workspace_bytes;
+	size_t workspaceBytes = 1UL << log2_workspace_bytes;
 	
 
 	int n_matmuls = atoi(argv[6]);
 
 	int n_warmup = atoi(argv[7]);
 
-	int use_same_b_matrix = atoi(argv[8]);
+	int n_compute_iters = atoi(argv[8]);
 
-	int n_compute_iters = atoi(argv[9]);
+	int n_sms = atoi(argv[9]);
+
+
+	int use_same_b_matrix = atoi(argv[10]);
+
+	int use_c_matrix = atoi(argv[11]);
+
+	int use_fp_16_accum = atoi(argv[12]);
+
 
 
 	ret = initialize_drv();
@@ -84,7 +94,7 @@ int main (int argc, char * argv[]){
 	// HARDCODING FOR NOW
 	int device_id = 0;
 
-	ret = initialize_ctx(device_id, &ctx);
+	ret = initialize_ctx(device_id, &ctx, n_sms);
 	if (ret){
 		fprintf(stderr, "Error: failed to init cuda ctx...\n");
 		return -1;
@@ -122,14 +132,23 @@ int main (int argc, char * argv[]){
 	// Show Expected Outcome...
 	double compute_peak_tflops;
 
-	if (dt == FP8){
-		compute_peak_tflops = MAX_FP8_TFLOPS;
+	double sm_ratio;
+
+	if (n_sms <= 0){
+		sm_ratio = 1.0;
+	}
+	else{
+		sm_ratio = ((double) n_sms) / (double) NUM_SMS;
+	}
+
+	if (dt == FP8E4M3){
+		compute_peak_tflops = MAX_FP8_TFLOPS * sm_ratio;
 	}
 	else if (dt == FP16){
-		compute_peak_tflops = MAX_FP16_TFLOPS;
+		compute_peak_tflops = MAX_FP16_TFLOPS * sm_ratio;
 	}
 	else if (dt == FP32){
-		compute_peak_tflops = MAX_FP32_TFLOPS;
+		compute_peak_tflops = MAX_FP32_TFLOPS * sm_ratio;
 	}
 	else{
 		fprintf(stderr, "Error: data type %d not supported...\n", dt);
@@ -182,7 +201,7 @@ int main (int argc, char * argv[]){
 
 	DataType c_dt = dt;
 
-	if (dt == FP8){
+	if (dt == FP8E4M3){
 		c_dt = FP16;
 	}
 
@@ -245,7 +264,7 @@ int main (int argc, char * argv[]){
 		return -1;
 	}
 
-	uint64_t all_workspace_size = (uint64_t) n_matmuls * workspace_bytes;
+	uint64_t all_workspace_size = (uint64_t) n_matmuls * workspaceBytes;
 	void * dev_all_workspace = alloc_dev_mem(ctx, all_workspace_size);
 	if (!dev_all_workspace){
 		fprintf(stderr, "Error: failed to alloc space for all workspace on device\n\tSize: %lu\n", all_workspace_size);
@@ -302,7 +321,7 @@ int main (int argc, char * argv[]){
 
 		d_workspace[i] = cur_workspace_loc;
 		if (!d_workspace[i]){
-			fprintf(stderr, "Error: failed to alloc workspace bytes of size: %lu...\n", workspace_bytes);
+			fprintf(stderr, "Error: failed to alloc workspace bytes of size: %lu...\n", workspaceBytes);
 			return -1;
 		}
 
@@ -310,7 +329,7 @@ int main (int argc, char * argv[]){
 		
 		cur_C_loc += C_size;
 		cur_D_loc += D_size;
-		cur_workspace_loc += workspace_bytes;
+		cur_workspace_loc += workspaceBytes;
 
 		if (!use_same_b_matrix){
 			cur_B_loc += B_size;
@@ -340,9 +359,6 @@ int main (int argc, char * argv[]){
 		return -1;
 	}
 
-
-	Cublas_Matmul_Desc desc_info;
-
 	char prof_warmup_str[256];
 
 	sprintf(prof_warmup_str, "Warmup: %d Matmuls...", n_warmup);
@@ -352,17 +368,40 @@ int main (int argc, char * argv[]){
 	profile_range_push(prof_warmup_str);
 
 	int matmul_ind;
+
+	DataType a_dt = dt;
+	DataType b_dt = dt;
+	DataType d_dt = dt;
+	
+	// will set C == D in this case...
+	if (!use_c_matrix){
+		c_dt = NONE;
+	}
+
+	DataType compute_dt;
+
+	if (use_fp_16_accum){
+		compute_dt = FP16;
+	}
+	else{
+		compute_dt = FP32;
+	}
+
 	for (int i = 0; i < n_warmup; i++){
 
 		matmul_ind = i % n_matmuls;
 
-		if (i == 0){
-			ret = do_cublas_matmul(compute_stream, cublas_handle, d_workspace[matmul_ind], workspace_bytes, M, K, N, dt, 
-							alpha, d_A[matmul_ind], d_B[matmul_ind], beta, d_C[matmul_ind], d_D[matmul_ind], NULL, &desc_info, NULL);
-		}
-		else{
-			ret = do_cublas_matmul(compute_stream, cublas_handle, d_workspace[matmul_ind], workspace_bytes, M, K, N, dt, 
-							alpha, d_A[matmul_ind], d_B[matmul_ind], beta, d_C[matmul_ind], d_D[matmul_ind], &desc_info, NULL, NULL);
+		ret = do_cublas_matmul(compute_stream, cublas_handle, 
+									a_dt, b_dt, c_dt, d_dt, compute_dt,
+									M, K, N,
+									alpha, beta,
+									workspaceBytes, d_workspace[matmul_ind],
+									d_A[matmul_ind], d_B[matmul_ind], d_C[matmul_ind], d_D[matmul_ind],
+									n_sms,
+									NULL);
+		if (ret){
+			fprintf(stderr, "Error: could not submit warmup matmul id #%d...\n", i);
+			return -1;
 		}
 	}
 
@@ -410,9 +449,14 @@ int main (int argc, char * argv[]){
 
 			profile_range_push(prof_wrapper_str);
 
-			// using the saved descriptor
-			ret = do_cublas_matmul(compute_stream, cublas_handle, d_workspace[i], workspace_bytes, M, K, N, dt, 
-								alpha, d_A[i], d_B[i], beta, d_C[i], d_D[i], &desc_info, NULL, prof_core_str);
+			ret = do_cublas_matmul(compute_stream, cublas_handle, 
+									a_dt, b_dt, c_dt, d_dt, compute_dt,
+									M, K, N,
+									alpha, beta,
+									workspaceBytes, d_workspace[matmul_ind],
+									d_A[matmul_ind], d_B[matmul_ind], d_C[matmul_ind], d_D[matmul_ind],
+									n_sms,
+									prof_core_str);
 
 			if (ret){
 				fprintf(stderr, "Error: unable to do call cublas matmul for M = %d, K = %d, N = %d with dtype of fp%d...\n", M, K, N, dtype_fp_bits);

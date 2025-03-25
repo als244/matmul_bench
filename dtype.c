@@ -1,9 +1,31 @@
 #include "dtype.h"
 
+char * datatype_as_string(DataType dtype){
+	switch(dtype){
+		case FP8E4M3:
+			return "FP8E4M3";
+		case FP8E5M2:
+			return "FP8E5M2";
+		case FP16:
+			return "FP16";
+		case BF16:
+			return "BF16";
+		case FP32:
+			return "FP32";
+		default:
+			return "UNKNOWN";
+	}
+
+	// not reaching here
+	return "UNKNOWN";
+}
+
 size_t sizeof_dtype(DataType dtype){
 
 	switch(dtype){
-		case FP8:
+		case FP8E4M3:
+			return 1;
+		case FP8E5M2:
 			return 1;
 		case FP16:
 			return 2;
@@ -131,4 +153,14 @@ uint8_t fp32_to_fp8(float f, int e_bits, int m_bits) {
 	result |= M;
 
 	return result;
+}
+
+
+uint16_t fp32_to_bf16(float f) {
+	uint32_t bits;
+	memcpy(&bits, &f, sizeof(bits));
+	// Round-to-nearest: add 0x8000 (1 << 15) before truncating.
+	bits += 0x8000;
+	uint16_t b = (uint16_t)(bits >> 16);
+	return b;
 }

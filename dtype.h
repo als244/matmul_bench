@@ -5,8 +5,11 @@
 
 
 typedef enum data_type {
+	NONE,
+	VOID,
 	FP4,
-	FP8,
+	FP8E4M3,
+	FP8E5M2,
 	FP16,
 	BF16,
 	FP32,
@@ -27,6 +30,10 @@ uint8_t fp32_to_fp8(float f, int e_bits, int m_bits);
 
 uint16_t fp32_to_fp16(float f);
 
+uint16_t fp32_to_bf16(float f);
+
 float fp16_to_fp32(uint16_t h);
+
+char * datatype_as_string(DataType dtype);
 
 #endif

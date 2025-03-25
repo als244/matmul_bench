@@ -5,7 +5,14 @@
 
 int initialize_drv();
 
-int initialize_ctx(int device_id, CUcontext * ctx);
+int get_dev_attribute(int * ret_val, CUdevice dev, CUdevice_attribute attrib);
+
+// if num_sms > 0 then using green context
+// 6.X min count is 1
+// 7.X min count is 2 and must be multiple of 2
+// 8.X min count is 4 and must be multiple of 2
+// 9.X min count is 8 and must be multiple of 8
+int initialize_ctx(int device_id, CUcontext * ctx, int num_sms);
 
 int initialize_stream(CUcontext ctx, CUstream * stream, int prio);
 
