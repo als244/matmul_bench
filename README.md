@@ -1,5 +1,5 @@
 # Matmul Benchmarking
-### Using cublasLt
+- Using cublasLt
 
 ## Directions
 
@@ -7,8 +7,8 @@
 2. Run `make`
 3. Start Program from Command Line:
 	- ```./benchCublasLtMatmul <M> <K> <N> <dtype_fp_bits> <log2_workspace_bytes> <n_matmuls> <n_warmup> <n_compute_iters> <n_sms> <use_same_b_matrix> <use_c_matrix> <use_fp16_accum>```
-3b. Instead, can optionally Start Program with the Nsight System's Profiler: 
-	- ```./do_profile_metrics.sh << All Arguments >>```
+	- Instead, can optionally Start Program with the Nsight System's Profiler: 
+		- ```./do_profile_metrics.sh << All Arguments >>```
 
 ### Notes:
 
