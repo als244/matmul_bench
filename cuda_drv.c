@@ -216,7 +216,7 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 			}
 		}
 
-		CUdevResrouce ctx_resource;
+		CUdevResource ctx_resource;
 
 		result = cuCtxGetDevResource(*ctx, &ctx_resource, CU_DEV_RESOURCE_TYPE_SM);
 		if (result != CUDA_SUCCESS){
