@@ -101,18 +101,18 @@ int main (int argc, char * argv[]){
 		return -1;
 	}
 
-	int remain_sms = total_sms - used_sms;
+	// int remain_sms = total_sms - used_sms;
 
-	CUcontext remain_ctx;
+	// CUcontext remain_ctx;
 
-	int total_sms_b;
-	int used_sms_b;
+	// int total_sms_b;
+	// int used_sms_b;
 
-	ret = initialize_ctx(device_id, &remain_ctx, remain_sms, &total_sms_b, &used_sms_b, false);
-	if (ret){
-		fprintf(stderr, "Error: failed to init cuda ctx with remaining sms...\n");
-		return -1;
-	}
+	// ret = initialize_ctx(device_id, &remain_ctx, remain_sms, &total_sms_b, &used_sms_b, false);
+	// if (ret){
+	// 	fprintf(stderr, "Error: failed to init cuda ctx with remaining sms...\n");
+	// 	return -1;
+	// }
 
 	const char * context_name = "Main Context";
 	profile_name_context(&ctx, context_name);
