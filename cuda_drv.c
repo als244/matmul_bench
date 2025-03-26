@@ -183,10 +183,10 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 		unsigned int nbResources = MY_MAX(1, num_groups - 1);
 
 		for (int i = 0; i < nbResources; i++){
-			*used_sms += result_sm_resources[0].sm.smCount;
+			*used_sms += result_sm_resources[i].sm.smCount;
 		}
 
-		printf("\n\nUsed SMs: %d\n", result_sm_resources[0].sm.smCount);
+		printf("\n\nUsed SMs: %d\n", *used_sms);
 
 		result = cuDevResourceGenerateDesc(&sm_resource_desc, result_sm_resources, nbResources);
 		if (result != CUDA_SUCCESS){
