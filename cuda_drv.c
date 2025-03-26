@@ -178,7 +178,9 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 
 		// Generate resource desc
 		CUdevResourceDesc sm_resource_desc;
-		unsigned int nbResources = num_groups;
+		unsigned int nbResources = 1;
+
+		*used_sms = result_sm_resources[0].sm.smCount;
 
 		result = cuDevResourceGenerateDesc(&sm_resource_desc, result_sm_resources, nbResources);
 		if (result != CUDA_SUCCESS){
@@ -213,21 +215,6 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 		    	return -1;
 			}
 		}
-
-		CUdevResource ctx_resource;
-
-		result = cuCtxGetDevResource(*ctx, &ctx_resource, CU_DEV_RESOURCE_TYPE_SM);
-		if (result != CUDA_SUCCESS){
-			fprintf(stderr, "Error: could not get ctx resource...\n");
-			return -1;
-		}
-
-		int ctx_sms = ctx_resource.sm.smCount;
-
-		printf("CTX Sms: %d\n", ctx_sms);
-
-		*used_sms = ctx_sms;
-
 	}
 
 
