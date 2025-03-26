@@ -544,7 +544,7 @@ int do_cublas_matmul(CUstream compute_stream, cublasLtHandle_t cublas_handle,
 							matmul_params -> Cdesc,
 							matmul_params -> D,
 							matmul_params -> Ddesc,
-							&((matmul_params -> heuristicResultsArray)[1].algo),
+							&((matmul_params -> heuristicResultsArray)[2].algo),
 							matmul_params -> workspace,
 							matmul_params -> workspaceBytes,
 							compute_stream);
