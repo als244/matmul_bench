@@ -95,7 +95,7 @@ int main (int argc, char * argv[]){
 	int total_sms;
 	int used_sms;
 
-	ret = initialize_ctx(device_id, &ctx, n_sms, &total_sms, &used_sms);
+	ret = initialize_ctx(device_id, &ctx, n_sms, &total_sms, &used_sms, true);
 	if (ret){
 		fprintf(stderr, "Error: failed to init cuda ctx...\n");
 		return -1;
@@ -108,7 +108,7 @@ int main (int argc, char * argv[]){
 	int total_sms_b;
 	int used_sms_b;
 
-	ret = initialize_ctx(device_id, &remain_ctx, remain_sms, &total_sms_b, &used_sms_b);
+	ret = initialize_ctx(device_id, &remain_ctx, remain_sms, &total_sms_b, &used_sms_b, false);
 	if (ret){
 		fprintf(stderr, "Error: failed to init cuda ctx with remaining sms...\n");
 		return -1;

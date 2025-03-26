@@ -31,7 +31,7 @@ int get_dev_attribute(int * ret_val, CUdevice dev, CUdevice_attribute attrib) {
 }
 
 
-int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms, int * used_sms){
+int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms, int * used_sms, bool to_set){
 
 	int ret;
 
@@ -208,11 +208,13 @@ int initialize_ctx(int device_id, CUcontext * ctx, int num_sms, int * total_sms,
 	    	return -1;
 		}
 
-		result = cuCtxPushCurrent(*ctx);
-		if (result != CUDA_SUCCESS){
-			cuGetErrorString(result, &err);
-	    	fprintf(stderr, "Error: Could not push converted green context after creation: %s\n", err);
-	    	return -1;
+		if (to_set){
+			result = cuCtxPushCurrent(*ctx);
+			if (result != CUDA_SUCCESS){
+				cuGetErrorString(result, &err);
+		    	fprintf(stderr, "Error: Could not push converted green context after creation: %s\n", err);
+		    	return -1;
+			}
 		}
 
 	}
