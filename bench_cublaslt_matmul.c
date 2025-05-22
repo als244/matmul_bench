@@ -6,13 +6,19 @@
 #include "create_matrix.h"
 #include "cublas_helper.h"
 
+// H100 SXM5
 #define MAX_FP8_TFLOPS 1989.0f
 #define MAX_FP16_TFLOPS 989.0f
 #define MAX_FP32_TFLOPS 494.0f
-
+#define MEM_BW_TBYTES_SEC 3.35f
 #define NUM_SMS 132
 
-#define MEM_BW_TBYTES_SEC 3.35f
+// RTX 3090
+//#define MAX_FP8_TFLOPS 0.0f
+//#define MAX_FP16_TFLOPS 142.32f
+//#define MAX_FP32_TFLOPS 35.0f
+//#define NUM_SMS 82
+//#define MEM_BW_TBYTES_SEC 0.936f
 
 
 int main (int argc, char * argv[]){
@@ -464,8 +470,8 @@ int main (int argc, char * argv[]){
 									a_dt, b_dt, c_dt, d_dt, compute_dt,
 									M, K, N,
 									alpha, beta,
-									workspaceBytes, d_workspace[matmul_ind],
-									d_A[matmul_ind], d_B[matmul_ind], d_C[matmul_ind], d_D[matmul_ind],
+									workspaceBytes, d_workspace[i],
+									d_A[i], d_B[i], d_C[i], d_D[i],
 									n_sms,
 									prof_core_str);
 
