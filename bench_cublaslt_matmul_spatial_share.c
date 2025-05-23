@@ -110,81 +110,127 @@ int main (int argc, char * argv[]){
 	}
 
 
-	// TODO: ENABLE MULTI THREADS FOR SUBMITTING WORK ON DIFFERENT DEVICES...
-	// 			- Can start each thread indepenently from here...
+	// set primary context in order to get resource for green contexts...
 
-	CUcontext ctx;
+	printf("Creating Green Contexts/Streams...\n");
 
-
-	// HARDCODING FOR NOW
 	int device_id = 0;
 
-	int total_sms;
-	int used_sms;
+	CUcontext primaryCtx;
 
-	ret = initialize_ctx(device_id, &ctx, n_sms, &total_sms, &used_sms, true);
-	if (ret){
-		fprintf(stderr, "Error: failed to init cuda ctx...\n");
+	CUresult result = cuDevicePrimaryCtxRetain(&primaryCtx, device_id);
+	if (result != CUDA_SUCCESS){
+		fprintf(stderr, "Error: failed to retain primary context...\n");
 		return -1;
 	}
 
-	// int remain_sms = total_sms - used_sms;
-
-	// CUcontext remain_ctx;
-
-	// int total_sms_b;
-	// int used_sms_b;
-
-	// ret = initialize_ctx(device_id, &remain_ctx, remain_sms, &total_sms_b, &used_sms_b, false);
-	// if (ret){
-	// 	fprintf(stderr, "Error: failed to init cuda ctx with remaining sms...\n");
-	// 	return -1;
-	// }
-
-	const char * context_name = "Main Context";
-	profile_name_context(&ctx, context_name);
-
-	// HARDCODING FOR NOW
-	int prio = 0;
-
-	CUstream compute_stream;
-
-	ret = initialize_stream(ctx, &compute_stream, prio);
-	if (ret){
-		fprintf(stderr, "Error: could not initialize stream\n");
+	result = cuCtxPushCurrent(primaryCtx);
+	if (result != CUDA_SUCCESS){
+		fprintf(stderr, "Error: failed to push primary context...\n");
 		return -1;
 	}
 
-	const char * stream_name = "Compute Stream";
 
-	profile_name_stream(&compute_stream, stream_name);
-
-
+	// create cublasHandle on primary context...
 	cublasLtHandle_t cublas_handle;
 
-	ret = initialize_cublas_handle(ctx, &cublas_handle);
+	ret = initialize_cublas_handle(primaryCtx, &cublas_handle);
 	if (ret){
 		fprintf(stderr, "Error: unable to initialize cublas handle...\n");
 		return -1;
 	}
 
-	int total_sm_count;
-
-	switch (ARCH_TYPE){
-		case H100:
-			total_sm_count = H100_NUM_SMS;
-			break;
-		case RTX_5090:
-			total_sm_count = RTX_5090_NUM_SMS;
-			break;
-		case RTX_3090:
-			total_sm_count = RTX_3090_NUM_SMS;
-			break;
-		default:
-			fprintf(stderr, "Arch constants unknown...\n");
-			break;
+	CUdevResource input_sm_resource;
+	result = cuDeviceGetDevResource(device_id, &input_sm_resource, CU_DEV_RESOURCE_TYPE_SM);
+	if (result != CUDA_SUCCESS){
+		fprintf(stderr, "Error: failed to get sm resource...\n");
+		return -1;
 	}
-		// Show Expected Outcome...
+
+	int total_sm_count = input_sm_resource.sm.smCount;
+
+	// determine how many groups should be created...
+	unsigned int nbGroups;
+	result = cuDevSmResourceSplitByCount(NULL, &nbGroups, &input_sm_resource, NULL, 0, n_sms);
+	if (result != CUDA_SUCCESS){
+		fprintf(stderr, "Error: failed to split sm resource...\n");
+		return -1;
+	}
+
+	// now allocate array of sm resources...
+	CUdevResource * split_sm_resources = malloc(nbGroups * sizeof(CUdevResource));
+	if (!split_sm_resources){
+		fprintf(stderr, "Error: failed to alloc space for sm resources...\n");
+		return -1;
+	}
+
+	// split sm resources...
+	result = cuDevSmResourceSplitByCount(split_sm_resources, &nbGroups, &input_sm_resource, NULL, 0, n_sms);
+	if (result != CUDA_SUCCESS){
+		fprintf(stderr, "Error: failed to split sm resource...\n");
+		return -1;
+	}
+
+	// create cuda contexts and streams for each group...
+	CUgreenCtx * green_ctxs = malloc(nbGroups * sizeof(CUgreenCtx));
+	if (!green_ctxs){
+		fprintf(stderr, "Error: failed to alloc space for green ctxs...\n");
+		return -1;
+	}
+
+	CUstream * streams = malloc(nbGroups * sizeof(CUstream));
+	if (!streams){
+		fprintf(stderr, "Error: failed to alloc space for streams...\n");
+		return -1;
+	}
+
+	CUdevResourceDesc local_sm_resource_desc;
+
+	int used_sms = 0;
+	int sms_per_group = 0;
+	for (int i = 0; i < nbGroups; i++){
+		
+		result = cuDevResourceGenerateDesc(&local_sm_resource_desc, &split_sm_resources[i], 1);
+		if (result != CUDA_SUCCESS){
+			fprintf(stderr, "Error: failed to generate sm resource desc...\n");
+			return -1;
+		}
+
+		used_sms += split_sm_resources[i].sm.smCount;
+
+		if (i == 0){
+			sms_per_group = split_sm_resources[i].sm.smCount;
+		}
+		
+		// create green context...
+		result = cuGreenCtxCreate(&(green_ctxs[i]), local_sm_resource_desc, device_id, CU_GREEN_CTX_DEFAULT_STREAM);
+		if (result != CUDA_SUCCESS){
+			fprintf(stderr, "Error: failed to create green ctx for group %d...\n", i);
+			return -1;
+		}
+
+		// create stream for usage...
+		result = cuGreenCtxStreamCreate(&(streams[i]), green_ctxs[i], CU_STREAM_NON_BLOCKING, 0);
+		if (result != CUDA_SUCCESS){
+			fprintf(stderr, "Error: failed to create stream for group %d...\n", i);
+			return -1;
+		}
+	}
+
+	printf("Created %d streams each with %d SMs...\n", nbGroups, sms_per_group);
+
+
+	CUcontext * normal_ctxs = malloc(nbGroups * sizeof(CUcontext));
+
+	for (int i = 0; i < nbGroups; i++){
+		result = cuCtxFromGreenCtx(&(normal_ctxs[i]), green_ctxs[i]);
+		if (result != CUDA_SUCCESS){
+			fprintf(stderr, "Error: failed to create normal context for group %d...\n", i);
+			return -1;
+		}
+	}
+	
+	// Show Expected Outcome...
 
 	double sm_ratio = (double) used_sms / (double) total_sm_count;
 
@@ -258,10 +304,9 @@ int main (int argc, char * argv[]){
 	}
 
 
-
 	double compute_bound_limit = compute_peak_tflops / mem_bw_tbytes_sec;
 
-	printf("Device Info:\n\tDevice Compute Peak TFLOPS (fp%d, #SMs = %d): %d\n\tMem BW (TB/sec): %.2f\n\tLower Arithmetic Intensity Bound for Full Utilization: %.2f\n\n\n", dtype_fp_bits, used_sms, (int) compute_peak_tflops, mem_bw_tbytes_sec, compute_bound_limit);
+	printf("Device Info:\n\tDevice Compute Peak TFLOPS (fp%d, #SMs per group = %d, num groups = %d): %d\n\tMem BW (TB/sec): %.2f\n\tLower Arithmetic Intensity Bound for Full Utilization: %.2f\n\n\n", dtype_fp_bits, sms_per_group, nbGroups, (int) compute_peak_tflops, mem_bw_tbytes_sec, compute_bound_limit);
 
 	uint64_t total_flops = 2 * (uint64_t) M * (uint64_t) K * (uint64_t) N;
 
@@ -286,8 +331,12 @@ int main (int argc, char * argv[]){
 	double min_time_sec = total_tflops / expected_tflops;
 	double min_time_micros = min_time_sec * 1e6;
 
+	n_matmuls *= nbGroups;
+
 	printf("M = %d, K = %d, N = %d; # SMs = %d\n\tArithmetic Intensity (Total FLOPs / Total Bytes): %.2f\n\tUpper Bound Throughput: %.2f%%\n\tUpper Bound TFLOPS: %.2f\n\tLower Bound Time (micros): %.2f\n\n\n", M, K, N, used_sms, arithmetic_intensity, 100 * frac_of_peak, expected_tflops, min_time_micros);
 
+
+	
 
 
 	// MAKE MATRICES ON DEVICE!
@@ -344,40 +393,38 @@ int main (int argc, char * argv[]){
 
 	printf("Allocating Space on Device for Matrices...\n\n");
 
-	void * dev_all_A = alloc_dev_mem(ctx, all_A_size);
+	void * dev_all_A = alloc_dev_mem(primaryCtx, all_A_size);
 	if (!dev_all_A){
 		fprintf(stderr, "Error: failed to alloc space for all A matrices on device\n\tSize: %lu\n", all_A_size);
 		return -1;
 	}
 
-	void * dev_all_B = alloc_dev_mem(ctx, all_B_size);
+	void * dev_all_B = alloc_dev_mem(primaryCtx, all_B_size);
 	if (!dev_all_B){
 		fprintf(stderr, "Error: failed to alloc space for all B matrices on device\n\tSize: %lu\n", all_B_size);
 		return -1;
 	}
 
-	void * dev_all_C = alloc_dev_mem(ctx, all_C_size);
+	void * dev_all_C = alloc_dev_mem(primaryCtx, all_C_size);
 	if (!dev_all_C){
 		fprintf(stderr, "Error: failed to alloc space for all C matrices on device\n\tSize: %lu\n", all_C_size);
 		return -1;
 	}
 
-	void * dev_all_D = alloc_dev_mem(ctx, all_D_size);
+	void * dev_all_D = alloc_dev_mem(primaryCtx, all_D_size);
 	if (!dev_all_D){
 		fprintf(stderr, "Error: failed to alloc space for all D matrices on device\n\tSize: %lu\n", all_D_size);
 		return -1;
 	}
 
 	uint64_t all_workspace_size = (uint64_t) n_matmuls * workspaceBytes;
-	void * dev_all_workspace = alloc_dev_mem(ctx, all_workspace_size);
+	void * dev_all_workspace = alloc_dev_mem(primaryCtx, all_workspace_size);
 	if (!dev_all_workspace){
 		fprintf(stderr, "Error: failed to alloc space for all workspace on device\n\tSize: %lu\n", all_workspace_size);
 		return -1;
 	}
 
-	// blocking call within mem alloc and mem free anyways,
-	// so just gonna have long delays between each iteration...
-	CUstream * inbound_stream_ref = &compute_stream;
+
 
 	void * cur_A_loc = dev_all_A;
 	void * cur_B_loc = dev_all_B;
@@ -387,22 +434,24 @@ int main (int argc, char * argv[]){
 
 	printf("Creating Random Matrices and Copying to Device...\n\n");
 
+	
+
 	for (int i = 0; i < n_matmuls; i++){
 
 		// REALLOC EACH ITERATION TO ENSURE FRESH CACHE...
 		//printf("Creating Random Matrices and Sending To GPU Mem...\n");
 
 		// internally does
-		d_A[i] = create_rand_device_matrix(ctx, M, K, mean, std, dt, to_pin, inbound_stream_ref, &(h_A[i]), cur_A_loc);
+		d_A[i] = create_rand_device_matrix(normal_ctxs[i % nbGroups], M, K, mean, std, dt, to_pin, &(streams[i % nbGroups]), &(h_A[i]), cur_A_loc);
 		if (!d_A[i]){
-			fprintf(stderr, "Error: failed to create A matrix on device\n\tM = %d, K = %d\n", M, K);
+			fprintf(stderr, "Error: failed to create A matrix on device\n\tM = %d, K = %d for matmul #%d\n", M, K, i);
 			return -1;
 		}
 
 		if ((i == 0) || (!use_same_b_matrix)){
-			d_B[i] = create_rand_device_matrix(ctx, K, N, mean, std, dt, to_pin, inbound_stream_ref, &(h_B[i]), cur_B_loc);
+			d_B[i] = create_rand_device_matrix(normal_ctxs[i % nbGroups], K, N, mean, std, dt, to_pin, &(streams[i % nbGroups]), &(h_B[i]), cur_B_loc);
 			if (!d_B[i]){
-				fprintf(stderr, "Error: failed to create B matrix on device...\n\tK = %d, N = %d\n", K, N);
+				fprintf(stderr, "Error: failed to create B matrix on device\n\tK = %d, N = %d for matmul #%d\n", K, N, i);
 				return -1;
 			}
 		}
@@ -411,21 +460,21 @@ int main (int argc, char * argv[]){
 		}
 
 		
-		d_C[i] = create_rand_device_matrix(ctx, M, N, mean, 0, c_dt, to_pin, inbound_stream_ref, &(h_C[i]), cur_C_loc);
+		d_C[i] = create_rand_device_matrix(normal_ctxs[i % nbGroups], M, N, mean, 0, c_dt, to_pin, &(streams[i % nbGroups]), &(h_C[i]), cur_C_loc);
 		if (!d_C[i]){
-			fprintf(stderr, "Error: failed to create C matrix on device...\nM = %d, N = %d\n", M, N);
+			fprintf(stderr, "Error: failed to create C matrix on device\n\tM = %d, N = %d for matmul #%d\n", M, N, i);
 			return -1;
 		}
 
-		d_D[i] = create_zero_device_matrix(ctx, M, N, dt, to_pin, inbound_stream_ref, &(h_D[i]), cur_D_loc);
+		d_D[i] = create_zero_device_matrix(normal_ctxs[i % nbGroups], M, N, dt, to_pin, &(streams[i % nbGroups]), &(h_D[i]), cur_D_loc);
 		if (!d_D[i]){
-			fprintf(stderr, "Error: failed to create D matrix on device...\nM = %d, N = %d\n", M, N);
+			fprintf(stderr, "Error: failed to create D matrix on device\n\tM = %d, N = %d for matmul #%d\n", M, N, i);
 			return -1;
 		}
 
 		d_workspace[i] = cur_workspace_loc;
 		if (!d_workspace[i]){
-			fprintf(stderr, "Error: failed to alloc workspace bytes of size: %lu...\n", workspaceBytes);
+			fprintf(stderr, "Error: failed to alloc workspace bytes of size: %lu for matmul #%d\n", workspaceBytes, i);
 			return -1;
 		}
 
@@ -442,8 +491,8 @@ int main (int argc, char * argv[]){
 
 	
 
-	ret = stream_sync(ctx, compute_stream);
-	if (ret){
+	result = cuStreamSynchronize(streams[0]);
+	if (result != CUDA_SUCCESS){
 		fprintf(stderr, "Error: unable to do stream_sync...\n");
 		return -1;
 	}
@@ -457,11 +506,13 @@ int main (int argc, char * argv[]){
 		free(h_D[i]);
 	}
 
+	
 	ret = profile_start();
 	if (ret){
 		fprintf(stderr, "Error: unable to start profiler...\n");
 		return -1;
 	}
+
 
 	char prof_warmup_str[256];
 
@@ -499,7 +550,7 @@ int main (int argc, char * argv[]){
 
 		matmul_ind = i % n_matmuls;
 
-		ret = do_cublas_matmul(compute_stream, cublas_handle, 
+		ret = do_cublas_matmul(streams[0], cublas_handle, 
 									a_dt, b_dt, c_dt, d_dt, compute_dt,
 									M, K, N,
 									alpha, beta,
@@ -513,15 +564,13 @@ int main (int argc, char * argv[]){
 		}
 	}
 
-
-	ret = stream_sync(ctx, compute_stream);
-	if (ret){
-		fprintf(stderr, "Error: unable to do stream_sync...\n");
-		return -1;
-	}
-
 	profile_range_pop();
 
+	result = cuStreamSynchronize(streams[0]);
+	if (result != CUDA_SUCCESS){
+		fprintf(stderr, "Error: could not sync warmup stream...\n");
+		return -1;
+	}
 
 
 
@@ -545,7 +594,7 @@ int main (int argc, char * argv[]){
 
 	sprintf(prof_outer_str, "Benchmark: %d Matmuls x %d Iterations", n_matmuls, n_compute_iters);
 
-	profile_range_push(prof_warmup_str);
+	profile_range_push(prof_outer_str);
 
 	clock_gettime(CLOCK_MONOTONIC, &start_time);
 
@@ -557,13 +606,13 @@ int main (int argc, char * argv[]){
 
 			profile_range_push(prof_wrapper_str);
 
-			ret = do_cublas_matmul(compute_stream, cublas_handle, 
+			ret = do_cublas_matmul(streams[i % nbGroups], cublas_handle, 
 									a_dt, b_dt, c_dt, d_dt, compute_dt,
 									M, K, N,
 									alpha, beta,
 									workspaceBytes, d_workspace[i],
 									d_A[i], d_B[i], d_C[i], d_D[i],
-									n_sms,
+									sms_per_group,
 									prof_core_str);
 
 			if (ret){
@@ -576,12 +625,14 @@ int main (int argc, char * argv[]){
 		}
 	}
 
-	// set context to spin on sync so should be pretty accurate resolution...
-	ret = stream_sync(ctx, compute_stream);
-	if (ret){
-		fprintf(stderr, "Error: unable to do stream_sync...\n");
-		return -1;
+	for (int i = 0; i < nbGroups; i++){
+		result = cuStreamSynchronize(streams[i]);
+		if (result != CUDA_SUCCESS){
+			fprintf(stderr, "Error: could not sync stream %d...\n", i);
+			return -1;
+		}
 	}
+
 
 	profile_range_pop();
 
@@ -598,7 +649,7 @@ int main (int argc, char * argv[]){
 	achieved_tflops = (((uint64_t) n_compute_iters * (uint64_t) n_matmuls * total_flops) / elapsed_sec) / 1e12;
 	achieved_throughput_pct = achieved_tflops / compute_peak_tflops;
 
-	printf("\nCompleted %d Matrix Multiplications!\n\tM = %d, K = %d, N = %d; #SMs = %d\n\n\t\tAvg. Elapsed Time (micros): %.2f\n\t\tOverall Achieved TFLOPS: %.3f\n\t\tAchieved TFLOPS Per SM: %.3f\n\t\tAchieved Throughput: %.2f%%\n\n", n_matmuls, M, K, N, used_sms, elapsed_micros / ((double) n_matmuls * (double) n_compute_iters), achieved_tflops, achieved_tflops / used_sms, 100 * achieved_throughput_pct);
+	printf("\nCompleted %d Matrix Multiplications!\n\tM = %d, K = %d, N = %d; #SMs = %d per group, %d groups\n\n\t\tAvg. Elapsed Time (micros): %.2f\n\t\tOverall Achieved TFLOPS: %.3f\n\t\tAchieved TFLOPS Per SM: %.3f\n\t\tAchieved Throughput: %.2f%%\n\n", n_matmuls, M, K, N, sms_per_group, nbGroups, elapsed_micros / ((double) n_matmuls * (double) n_compute_iters), achieved_tflops, achieved_tflops / used_sms, 100 * achieved_throughput_pct);
 
 	ret = profile_stop();
 	if (ret){
@@ -609,33 +660,39 @@ int main (int argc, char * argv[]){
 	// Cleaning up memory
 	printf("\nFreeing Device Memory...\n");
 
-	ret = free_dev_mem(ctx, dev_all_A);
+	ret = free_dev_mem(primaryCtx, dev_all_A);
 	if (ret){
 		fprintf(stderr, "Error: could not free all device A matrices...\n");
 		return -1;
 	}
 
-	ret = free_dev_mem(ctx, dev_all_B);
+	ret = free_dev_mem(primaryCtx, dev_all_B);
 	if (ret){
 		fprintf(stderr, "Error: could not free all device B matrices...\n");
 		return -1;
 	}
 
-	ret = free_dev_mem(ctx, dev_all_C);
+	ret = free_dev_mem(primaryCtx, dev_all_C);
 	if (ret){
 		fprintf(stderr, "Error: could not free all device C matrices...\n");
 		return -1;
 	}
 
-	ret = free_dev_mem(ctx, dev_all_D);
+	ret = free_dev_mem(primaryCtx, dev_all_D);
 	if (ret){
 		fprintf(stderr, "Error: could not free all device D matrices...\n");
 		return -1;
 	}
 
-	ret = free_dev_mem(ctx, dev_all_workspace);
+	ret = free_dev_mem(primaryCtx, dev_all_workspace);
 	if (ret){
 		fprintf(stderr, "Error: could not free all device workspace mem...\n");
+		return -1;
+	}
+
+	result = cuDevicePrimaryCtxRelease(device_id);
+	if (result != CUDA_SUCCESS){
+		fprintf(stderr, "Error: could not release primary context...\n");
 		return -1;
 	}
 

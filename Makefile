@@ -7,7 +7,7 @@ CFLAGS = ${DEV_CFLAGS}
 
 ALL_OBJS = dtype.o cuda_drv.o backend_profile.o create_matrix.o cublas_helper.o 
 
-EXECS = benchCublasLtMatmul
+EXECS = benchCublasLtMatmul benchCublasLtMatmulSpatialShare
 
 
 CUDA_INCLUDE_DIR = /usr/local/cuda/include
@@ -24,6 +24,8 @@ benchCublasLtMatmul: bench_cublaslt_matmul.c ${ALL_OBJS}
 	${CC} ${CFLAGS} $^ -o $@ -I ${CUDA_INCLUDE_DIR} ${LIB_LINKS} -L${CUDA_LIB_DIR} ${CUDA_LIB_LINKS}
 
 
+benchCublasLtMatmulSpatialShare: bench_cublaslt_matmul_spatial_share.c ${ALL_OBJS}
+	${CC} ${CFLAGS} $^ -o $@ -I ${CUDA_INCLUDE_DIR} ${LIB_LINKS} -L${CUDA_LIB_DIR} ${CUDA_LIB_LINKS}
 
 
 
