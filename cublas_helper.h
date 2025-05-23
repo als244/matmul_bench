@@ -46,6 +46,8 @@ int do_cublas_matmul(CUstream compute_stream, cublasLtHandle_t cublas_handle,
 						uint64_t workspaceBytes, void * workspace,
 						void * A, void * B, void * C, void * D,
 						int num_sms,
+						cublasLtMatmulAlgo_t * algo_to_use,
+						cublasLtMatmulAlgo_t * algo_to_save,
 						char * prof_label);
 
 

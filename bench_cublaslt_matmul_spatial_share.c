@@ -39,7 +39,7 @@
 #define RTX_3090_MEM_BW_TBYTES_SEC 0.936f
 
 
-#define ARCH_TYPE RTX_5090
+#define ARCH_TYPE H100
 
 
 int main (int argc, char * argv[]){
@@ -546,6 +546,9 @@ int main (int argc, char * argv[]){
 		compute_dt = FP32;
 	}
 
+	// get algo to use during warmup
+	cublasLtMatmulAlgo_t algo;
+
 	for (int i = 0; i < n_warmup; i++){
 
 		matmul_ind = i % n_matmuls;
@@ -557,6 +560,8 @@ int main (int argc, char * argv[]){
 									workspaceBytes, d_workspace[matmul_ind],
 									d_A[matmul_ind], d_B[matmul_ind], d_C[matmul_ind], d_D[matmul_ind],
 									n_sms,
+									NULL,
+									&algo,
 									NULL);
 		if (ret){
 			fprintf(stderr, "Error: could not submit warmup matmul id #%d...\n", i);
@@ -613,6 +618,8 @@ int main (int argc, char * argv[]){
 									workspaceBytes, d_workspace[i],
 									d_A[i], d_B[i], d_C[i], d_D[i],
 									sms_per_group,
+									&algo,
+									NULL,
 									prof_core_str);
 
 			if (ret){

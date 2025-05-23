@@ -294,7 +294,8 @@ static int set_cublas_matmul_params(Cublas_Matmul_Params * matmul_params, cublas
 									 float alpha, float beta,
 									 uint64_t workspaceBytes, void * workspace,
 									 void * A, void * B, void * C, void * D,
-									 int num_sms){
+									 int num_sms,
+									 cublasLtMatmulAlgo_t * algo_to_use){
 
 	int ret;
 
@@ -449,25 +450,29 @@ static int set_cublas_matmul_params(Cublas_Matmul_Params * matmul_params, cublas
 	matmul_params -> workspaceBytes = (size_t) workspaceBytes;
 	matmul_params -> workspace = workspace;
 
-	status = cublasLtMatmulPreferenceCreate(&(matmul_params -> pref));
-	if (status != CUBLAS_STATUS_SUCCESS) {
-		fprintf(stderr, "Error: matmul pref could not be created\n");
-		return -1;
-	}
-	// Allowing just a small amount of workspace mem (2 MB) makes a big difference
-	status = cublasLtMatmulPreferenceSetAttribute(matmul_params -> pref, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &workspaceBytes, sizeof(workspaceBytes));
-	if (status != CUBLAS_STATUS_SUCCESS) {
-		fprintf(stderr, "Error: matmul pref attribute could not be set\n");
-		return -1;
-	}
-		
-	int algoCount = MAX_ALGO_SEARCH;
-	int retAlgoCount = 0;
+	// search for algo if not provided
+	if (!algo_to_use){
 
-	status = cublasLtMatmulAlgoGetHeuristic(cublas_handle, matmul_params -> computeDesc, matmul_params -> Adesc, matmul_params -> Bdesc, matmul_params -> Cdesc, matmul_params -> Ddesc, matmul_params -> pref, algoCount, matmul_params -> heuristicResultsArray, &retAlgoCount);
-	if ((status != CUBLAS_STATUS_SUCCESS) || (retAlgoCount == 0)) {
-		fprintf(stderr, "Error: could not get matmul algo heuristic: %s\n", cublasLtGetStatusString(status));
-		return -1;
+		status = cublasLtMatmulPreferenceCreate(&(matmul_params -> pref));
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			fprintf(stderr, "Error: matmul pref could not be created\n");
+			return -1;
+		}
+		// Allowing just a small amount of workspace mem (2 MB) makes a big difference
+		status = cublasLtMatmulPreferenceSetAttribute(matmul_params -> pref, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &workspaceBytes, sizeof(workspaceBytes));
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			fprintf(stderr, "Error: matmul pref attribute could not be set\n");
+			return -1;
+		}
+			
+		int algoCount = MAX_ALGO_SEARCH;
+		int retAlgoCount = 0;
+
+		status = cublasLtMatmulAlgoGetHeuristic(cublas_handle, matmul_params -> computeDesc, matmul_params -> Adesc, matmul_params -> Bdesc, matmul_params -> Cdesc, matmul_params -> Ddesc, matmul_params -> pref, algoCount, matmul_params -> heuristicResultsArray, &retAlgoCount);
+		if ((status != CUBLAS_STATUS_SUCCESS) || (retAlgoCount == 0)) {
+			fprintf(stderr, "Error: could not get matmul algo heuristic: %s\n", cublasLtGetStatusString(status));
+			return -1;
+		}
 	}
 
 	if ((c_dt == NONE)|| (!C)) {
@@ -495,6 +500,8 @@ int do_cublas_matmul(CUstream compute_stream, cublasLtHandle_t cublas_handle,
 						uint64_t workspaceBytes, void * workspace,
 						void * A, void * B, void * C, void * D,
 						int num_sms,
+						cublasLtMatmulAlgo_t * algo_to_use,
+						cublasLtMatmulAlgo_t * algo_to_save,
 						char * prof_label) {
 
 	
@@ -517,7 +524,8 @@ int do_cublas_matmul(CUstream compute_stream, cublasLtHandle_t cublas_handle,
 									alpha, beta,
 									workspaceBytes, workspace,
 									A, B, C, D,
-									num_sms);
+									num_sms,
+									algo_to_use);
 	if (ret){
 		fprintf(stderr, "Error: unable to set cublas matmul params...\n");
 		ret = destroy_matmul_params(matmul_params);
@@ -532,6 +540,17 @@ int do_cublas_matmul(CUstream compute_stream, cublasLtHandle_t cublas_handle,
 		profile_range_push(prof_label);
 	}
 
+	cublasLtMatmulAlgo_t * true_algo;
+	if (algo_to_use){
+		true_algo = algo_to_use;
+	}
+	else{
+		true_algo = &(matmul_params -> heuristicResultsArray[0].algo);
+		if (algo_to_save){
+			memcpy(algo_to_save, true_algo, sizeof(cublasLtMatmulAlgo_t));
+		}
+	}
+
 	status = cublasLtMatmul(cublas_handle,
 							matmul_params -> computeDesc,
 							matmul_params -> alpha,
@@ -544,7 +563,7 @@ int do_cublas_matmul(CUstream compute_stream, cublasLtHandle_t cublas_handle,
 							matmul_params -> Cdesc,
 							matmul_params -> D,
 							matmul_params -> Ddesc,
-							&((matmul_params -> heuristicResultsArray)[0].algo),
+							true_algo,
 							matmul_params -> workspace,
 							matmul_params -> workspaceBytes,
 							compute_stream);
